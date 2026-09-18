@@ -143,6 +143,7 @@ class Grid extends React.Component<
   updateSort(sortByValue) {
     if (sortByValue) {
       this.sortConfig.by = sortByValue;
+      this.CONFIG.sort = sortByValue;
       marketplaceStorage.setItem(LOCALSTORAGE_KEYS.sort, sortByValue);
     }
 
@@ -201,7 +202,7 @@ class Grid extends React.Component<
           this.requestPage,
           this.BLACKLIST,
           this.CONFIG.visual.showArchived,
-          this.CONFIG.sort
+          marketplaceStorage.getItem(LOCALSTORAGE_KEYS.sort) || "stars"
         );
         const extensions: CardItem[] = [];
         for (const repo of pageOfRepos.items) {
@@ -295,7 +296,7 @@ class Grid extends React.Component<
           this.requestPage,
           this.BLACKLIST,
           this.CONFIG.visual.showArchived,
-          this.CONFIG.sort
+          marketplaceStorage.getItem(LOCALSTORAGE_KEYS.sort) || "stars"
         );
         const themes: CardItem[] = [];
         for (const repo of pageOfRepos.items) {
@@ -345,7 +346,7 @@ class Grid extends React.Component<
           this.requestPage,
           this.BLACKLIST,
           this.CONFIG.visual.showArchived,
-          this.CONFIG.sort
+          marketplaceStorage.getItem(LOCALSTORAGE_KEYS.sort) || "stars"
         );
         const apps: CardItem[] = [];
 
