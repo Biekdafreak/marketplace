@@ -6,9 +6,29 @@ import { manifestSchema } from "./Schemas";
 import { marketplaceStorage } from "./Storage";
 import { addToSessionStorage, isBlacklisted, processAuthors } from "./Utils";
 
-// TODO: add sort type, order, etc?
 // https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-for-repositories#search-by-topic
 // https://docs.github.com/en/rest/reference/search#search-repositories
+
+/**
+ * Map a Marketplace sort mode onto the closest GitHub search sort.
+ *
+ * Without an explicit `sort`, GitHub falls back to "best match", which ranks
+ * heavily on popularity. New or low-star repos land on the last page, so the
+ * recency sorts can never surface them. GitHub has no "created" sort, so the
+ * created-date modes use `updated` to at least fetch recently-touched repos.
+ */
+function githubSortParams(sortMode: string) {
+  switch (sortMode) {
+    case "newest":
+    case "lastUpdated":
+      return "&sort=updated&order=desc";
+    case "oldest":
+    case "mostStale":
+      return "&sort=updated&order=asc";
+    default:
+      return "&sort=stars&order=desc";
+  }
+}
 
 /**
  * Query GitHub for all repos with the requested topic
@@ -16,18 +36,20 @@ import { addToSessionStorage, isBlacklisted, processAuthors } from "./Utils";
  * @param page The query page number
  * @returns Array of search results (filtered through the blacklist)
  */
-export async function getTaggedRepos(tag: RepoTopic, page = 1, BLACKLIST: string[] = [], showArchived = false) {
+export async function getTaggedRepos(tag: RepoTopic, page = 1, BLACKLIST: string[] = [], showArchived = false, sortMode = "stars") {
   // www is needed or it will block with "cross-origin" error.
-  let url = `https://api.github.com/search/repositories?q=${encodeURIComponent(`topic:${tag}`)}&per_page=${ITEMS_PER_REQUEST}`;
+  let url = `https://api.github.com/search/repositories?q=${encodeURIComponent(`topic:${tag}`)}&per_page=${ITEMS_PER_REQUEST}${githubSortParams(sortMode)}`;
 
   // We can test multiple pages with this URL (58 results), as well as broken iamges etc.
   // let url = `https://api.github.com/search/repositories?q=${encodeURIComponent("topic:spicetify")}`;
   if (page) url += `&page=${page}`;
-  // Sorting params (not implemented for Marketplace yet)
-  // if (sortConfig.by.match(/top|controversial/) && sortConfig.time) {
-  //     url += `&t=${sortConfig.time}`
+
+  // Cache per sort mode as well as per page, or switching the sort would replay
+  // the previous mode's results out of sessionStorage.
+  const cacheKey = `${tag}-${sortMode}-page-${page}`;
+
   const allRepos =
-    JSON.parse(window.sessionStorage.getItem(`${tag}-page-${page}`) || "null") ||
+    JSON.parse(window.sessionStorage.getItem(cacheKey) || "null") ||
     (await fetch(url)
       .then((res) => res.json())
       .catch(() => null));
@@ -37,7 +59,7 @@ export async function getTaggedRepos(tag: RepoTopic, page = 1, BLACKLIST: string
     return { items: [] };
   }
 
-  window.sessionStorage.setItem(`${tag}-page-${page}`, JSON.stringify(allRepos));
+  window.sessionStorage.setItem(cacheKey, JSON.stringify(allRepos));
 
   const filteredResults = {
     ...allRepos,
