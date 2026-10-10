@@ -1,20 +1,25 @@
 import { t } from "i18next";
 import React from "react";
 import { CUSTOM_APP_PATH } from "../../constants";
-import { getAuthorLogin } from "../../logic/Utils";
+import { getOwnerLogin } from "../../logic/Utils";
 import type { Author } from "../../types/marketplace-types";
 
-// `owner` is the owner of the item's repo, used when an author has no usable GitHub link
+// `owner` is the owner of the item's repo, the only author whose name opens a creator page
 const AuthorsDiv = (props: { authors: Author[]; owner?: string }) => {
   // Add a div with author links inside
   const authorsDiv = (
     <div className="marketplace-card__authors">
       {props.authors.map((author) => {
-        // Authors linked to GitHub open their creator page; links to other sites open externally
-        const target = getAuthorLogin(author, props.owner);
-        const login = target?.login;
-        // On the repo owner's page, a name is only theirs if it's the manifest's only author
-        const pageName = !target?.isRepoOwner || props.authors.length === 1 ? author.name : undefined;
+        const login = getOwnerLogin(author, props.owner);
+        // Guessed links ("github.com/<name>") can be a stranger's account or a dead page, so they're not shown
+        if (!login && author.inferredUrl) {
+          return (
+            <span className="marketplace-card__author" dir="auto" key={author.name + author.url}>
+              {author.name}
+            </span>
+          );
+        }
+        // Other authors keep linking to their own page
         return (
           <a
             title={login ? t("authorPage.viewAll", { name: author.name }) : author.name}
@@ -29,7 +34,7 @@ const AuthorsDiv = (props: { authors: Author[]; owner?: string }) => {
               if (!login) return;
 
               e.preventDefault();
-              Spicetify.Platform.History.push({ pathname: `${CUSTOM_APP_PATH}/author/${login}`, state: { name: pageName } });
+              Spicetify.Platform.History.push({ pathname: `${CUSTOM_APP_PATH}/author/${login}`, state: { name: author.name } });
             }}
             key={author.name + author.url}
           >
